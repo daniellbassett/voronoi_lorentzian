@@ -13,7 +13,7 @@ isInteriorPoint checks if a point lies in the interior of the Lorentzian cone
 boundaryPoints computes integral points on the boundary of the cone, which are vertices of the tessellation
 */
 
-import "init.m" : n, standard_form, q, multithread, num_threads;
+import "init.m" : n, standard_form, q;//, multithread, num_threads;
 
 
 //----------Lorentzian cone construction----------
@@ -51,7 +51,7 @@ end function;
 /*We iterate over the first n-1 coordinates, and check if this gives a possible solution for the nth coordinate,
 given a fixed last coordinate ('height')*/
 
-if q[n] eq 1 then //can avoid division logic, ~10% faster
+if q[n] eq 1 then //can avoid division logic, ~5% faster
 	function boundaryPoints(height)
 		Vlow := VectorSpace(Rationals(), n, DiagonalMatrix(Rationals(), n, [-q[i] : i in [1..n-1]] cat [1]));
 		
@@ -65,7 +65,7 @@ if q[n] eq 1 then //can avoid division logic, ~10% faster
 		
 		while lastCoordBound le heightSquared do
 			norm := InnerProduct(v,v);
-			square, coord := IsSquare(norm); //~10% faster version when q[n] = 1
+			square, coord := IsSquare(norm);
 			
 			if square then
 				Append(~points, V ! ([v[i] : i in [1..n-1]] cat [coord, height]));
@@ -102,10 +102,12 @@ else
 		lastCoordBound := q[n-1] * v[n-1]^2; //to check when the last coordinate being varied is too big
 		
 		while lastCoordBound le heightSquared do
-			norm := InnerProduct(v,v);
-			if Integers() ! norm mod Integers() ! q[n] eq 0 then
-				target := ExactQuotient(norm, q[n]);
-				square, coord := IsSquare(target);
+			norm := Integers() ! InnerProduct(v,v);
+			denom := Integers() ! q[n];
+			
+			quotient, remainder := Quotrem(norm, denom);
+			if remainder eq 0 then
+				square, coord := IsSquare(quotient);
 				
 				if square then
 					Append(~points, V ! ([v[i] : i in [1..n-1]] cat [coord, height]));
