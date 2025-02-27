@@ -60,6 +60,10 @@ function cellBasis(vertices, dim) //Finds a subset of vertices that is a basis f
 	end for;
 end function;
 
+function cellNormal(vertices) //Finds a vector normal to all of vertices
+	
+end function;
+
 
 //----------Integral boundary points----------
 /*We iterate over the first n-1 coordinates, and check if this gives a possible solution for the nth coordinate,
@@ -148,6 +152,23 @@ else
 	end function;
 end if;
 
+function signOrbits(v, sign_flip_indices) //orbit of v under a C_2 acting on each index in sign_flip_indices
+	vectors := [];
+	
+	for i in [2^#sign_flip_indices .. 2^(#sign_flip_indices+1)-1]
+		bits := Prune(Intseq(i,2));
+		signs := [2*bit - 1 : bit in bits];
+		
+		w := v;
+		for j in [1..#sign_flip_indices] do
+			w[sign_flip_indices[j]] *:= signs[j];
+		end for;
+		
+		Append(~vectors, w);
+	end for;
+	
+	return vectors;
+end function;
 
 //----------Equivalence testing----------
 /*Testing for equivalence of Voronoi facets under the integral points of the isometry group
