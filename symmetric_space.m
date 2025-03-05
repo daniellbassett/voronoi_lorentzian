@@ -60,8 +60,11 @@ function cellBasis(vertices, dim) //Finds a subset of vertices that is a basis f
 	end for;
 end function;
 
-function cellNormal(vertices) //Finds a vector normal to all of vertices
+function cellNormal(vertices) //Finds a vector normal to all of vertices with respect to the minkowski form
+	M := J * Transpose(VerticalJoin(vertices));
+	orthBasis := KernelMatrix(M); //basis for orthogonal subspace
 	
+	return V ! RowSubmatrix(orthBasis, 1); //first element of basis as a vector
 end function;
 
 
@@ -152,10 +155,10 @@ else
 	end function;
 end if;
 
-function signOrbits(v, sign_flip_indices) //orbit of v under a C_2 acting on each index in sign_flip_indices
+function signOrbit(v, sign_flip_indices) //orbit of v under a C_2 acting on each index in sign_flip_indices
 	vectors := [];
 	
-	for i in [2^#sign_flip_indices .. 2^(#sign_flip_indices+1)-1]
+	for i in [2^#sign_flip_indices .. 2^(#sign_flip_indices+1)-1] do
 		bits := Prune(Intseq(i,2));
 		signs := [2*bit - 1 : bit in bits];
 		
@@ -180,7 +183,7 @@ if standard_form then
 	function posRep(v) //Associates a symmetric matrix to v; if minkowskiNorm(v) > 1/2 (e.g. for integral points, which we can get by rescaling) then this will be positive-definite.
 		return (MatrixRing(Rationals(), n+1) ! Eltseq(TensorProduct(v,v))) - J/2;
 	end function;
-	
+		
 	function clearDenoms(v,w) //rescale consistently to integral vectors
 		denoms := [];
 		
