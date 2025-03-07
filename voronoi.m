@@ -17,8 +17,6 @@ function minimalVectors(p, boundary_point_database, min, minimal_vectors) //calc
 		height_bound := 2 * p[n+1] * min / minkowskiNorm(p);
 	end if;
 	
-	print minkowskiNorm(p);
-	
 	p_signs := [Sign(p[i]) : i in [1..n+1]]; //minimal vectors will have entries whose signs match those of p
 	p_zero_indices := [];
 	for i in [1..n+1] do
@@ -39,7 +37,6 @@ function minimalVectors(p, boundary_point_database, min, minimal_vectors) //calc
 			w := V ! [v[i] * p_signs[i] : i in [1..n+1]];
 			
 			p_component := minkowskiForm(p, w);
-			print p_component, min;
 			if p_component lt min then //new minimum found
 				min := p_component;
 				
@@ -52,7 +49,6 @@ function minimalVectors(p, boundary_point_database, min, minimal_vectors) //calc
 				
 				minimal_vectors := signOrbit(w, sign_flip_indices);
 				
-				print min;
 				height_bound := 2 * p[n+1] * min / minkowskiNorm(p); //new upper bound on the height based on new minimum, derived using cauchy-schwarz
 			elif p_component eq min then //same minimum, new minimal vector
 				sign_flip_indices := []; //both signs possible when p[i] = 0 and v[i] =/= 0
@@ -137,4 +133,79 @@ else
 	end function;
 end if;
 
-buildInitialPoint([]);
+function neighbour(p, min_vecs, facet_vecs, boundary_point_database)
+	normal := cellNormal(min_vecs);
+	
+	for v in min_vecs do
+		if minkowskiForm(v, normal) lt 0 then
+			normal *:= -1; //choose sign so that all minvecs have minkowskiForm(v,n) >= 0
+			break;
+		end if;
+	end for;
+	
+	//figure out which signs are fixed by p and facet_vecs
+	p_signs := [Sign(p[i]) : i in [1..n+1]];
+	
+	sign_flip_indices := [];
+	for i in [1..n] do
+		if p_signs[i] ne 0 then			
+			if Sign(normal[i]) eq -p_signs[i] then //can't tell for now, so have to keep checking
+				Append(~sign_flip_indices, i);
+			end if;
+		else
+			if Sign(normal[i]) ne 0 then
+				p_signs[i] := Sign(normal[i]); //constructed perfect vector will have the same sign as the normal vector
+			else
+				Append(~sign_flip_indices, i); //constructed perfect vector will be zero in the ith component
+			end if;
+		end if;
+	end for
+	
+	//now try to attach a new minimal vector
+	bound := Infinity();
+	height := 1;
+	min_rho := Infinity();
+	
+	while height lt bound do
+		if height gt #boundary_point_database do
+			Append(~boundary_point_database, boundaryPoints(height));
+		end if;
+		
+		for v in boundary_point_database[height] do
+			w := [v[i] * p_signs[i] : i in [1..n]];
+			
+			for vec in signOrbit(w, sign_flip_indices) do
+				normal_component := minkowskiForm(vec, normal);
+				
+				if normal_component lt 0 then //vec lies on the correct side of the facet
+					rho := (1 - minkowskiForm(vec, p)) / normal_component;
+					
+					if rho lt min_rho then //possible minimal vector of neighbour
+						candidate := p + rho * normal;
+						
+						if isInteriorPoint(candidate) then
+							candidate_min, candidate_min_vecs, boundary_point_database := minimalVectors(candidate, boundary_point_database, 1, facet_vecs cat [vec]);
+							
+							if candidate_min eq 1 then //neighbour found
+								return candidate_min, candidate_min_vecs, boundary_point_database;
+							end if;
+							
+							new_bound := 2 * candidate[n+1] / minkowskiNorm(candidate);//not clear if the bound is increasing with rho, so only updating bound when definitely valid to do so
+							if new_bound lt bound then
+								bound := new_bound;
+							end if;
+						end if;
+						
+						min_rho := rho;
+						
+						for i in [1..#sign_flip_indices] do
+							if Sign(candidate[sign_flip_indices[i]]) eq p_signs[sign_flip_indices[i]] then //sign of neighbour agrees with p in coordinate sign_flip_indices[i]; no longer need to flip
+								Remove(~sign_flip_indices, i);
+							end if;
+						end for;
+					end if;
+				end if;
+			end for;
+		end for;
+	end while;
+end function;
