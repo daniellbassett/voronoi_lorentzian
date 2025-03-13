@@ -67,6 +67,19 @@ function cellNormal(vertices) //Finds a vector normal to all of vertices with re
 	return V ! RowSubmatrix(orthBasis, 1); //first element of basis as a vector
 end function;
 
+function facets(vertices)
+	poly := Polytope([Eltseq(v) : v in vertices]);
+	
+	indices := FacetIndices(poly);
+	facet_list := [];
+	
+	for facet in indices do
+		Append(~facet_list, [vertices[i] : i in facet]);
+	end for;
+	
+	return facet_list;
+end function;
+
 
 //----------Integral boundary points----------
 /*We iterate over the first n-1 coordinates, and check if this gives a possible solution for the nth coordinate,
@@ -226,7 +239,7 @@ if standard_form then
 		end if;
 	end function;
 else
-	function equivalentOne(v, min_vecs_v, w, min_vecs_w) //naive method: check all ordered subsets of n+1 elements of min_vecs_w and create the matrix
+	function equivalent(v, min_vecs_v, w, min_vecs_w) //naive method: check all ordered subsets of n+1 elements of min_vecs_w and create the matrix
 		if #min_vecs_v eq #min_vecs_w then
 			if minkowskiNorm(v) eq minkowskiNorm(w) then //naive geometric invariants do not distinguish
 				v_cell_basis := cellBasis(min_vecs_v, n+1);
