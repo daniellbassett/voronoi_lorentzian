@@ -80,6 +80,9 @@ function facets(vertices)
 	return facet_list;
 end function;
 
+function barycentre(vertices)
+	return (&+vertices)/#vertices;
+end function;
 
 //----------Integral boundary points----------
 /*We iterate over the first n-1 coordinates, and check if this gives a possible solution for the nth coordinate,
