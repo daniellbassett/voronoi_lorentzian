@@ -223,9 +223,9 @@ if standard_form then
 				L1 := LatticeWithGram(2*posRep(v));
 				L2 := LatticeWithGram(2*posRep(w));
 				
-				equiv, equivBy := IsIsometric(L1, [J_int], L2, [J_int]); //Isometries of L1 and L2 that preserve J_int i.e. SO(n,1; Z)
+				equiv, equivBy := IsIsometric(L1, [J_int], L2, [J_int]); //Isometries of L1 and L2 that preserve J_int i.e. O(n,1; Z)
 				if equiv then
-					equivBy := MatrixRing(Rationals(), n+1) ! Transpose(equivBy); //tells us that v equiv^T = +/- w, with equiv in SO(n,1; Z). if standard_form, this implies equiv^T in SO(n,1; Z)
+					equivBy := MatrixRing(Rationals(), n+1) ! Transpose(equivBy); //tells us that v equiv^T = +/- w, with equiv in O(n,1; Z). if standard_form, this implies equiv^T in O^(n,1; Z)
 					if v * equivBy eq w then
 						return true, equivBy;
 					else
@@ -240,6 +240,23 @@ if standard_form then
 		else
 			return false, false;
 		end if;
+	end function;
+	
+	function stabiliser(v, min_vecs_v)
+		v, _ := clearDenoms(v);
+		
+		L := LatticeWithGram(2*posRep(v));
+		G := AutomorphismGroup(L, [J_int]);
+		
+		//find elements of G that genuinely fix v rather than just posRep(v)
+		stab := [];
+		for g in G do
+			if v * g eq v then
+				Append(~stab, v);
+			end if;
+		end for;
+		
+		return stab; //TODO: find a way to treat this as a group within magma
 	end function;
 else
 	function equivalent(v, min_vecs_v, w, min_vecs_w) //naive method: check all ordered subsets of n+1 elements of min_vecs_w and create the matrix
@@ -285,6 +302,46 @@ else
 		else
 			return false, false;
 		end if;
+	end function;
+	
+	function stabiliser(v, min_vecs_v);
+		v_cell_basis := cellBasis(min_vecs_v, n+1);
+		
+		M := VerticalJoin(v_cell_basis);
+		M_inv := M^-1;
+		
+		stab := [];
+		
+		vertex_set_v := {p : p in min_vecs_v};
+		sym_group := Sym({1..n+1});
+		for S in Subsets(vertex_set_v, n+1) do
+			subset_list := [s : s in S];
+			
+			for sigma in sym_group do
+				sigma_seq := ElementToSequence(sigma);
+				
+				N := VerticalJoin([subset_list[sigma_seq[i]] : i in [1..n+1]]);
+				gamma := M_inv * N;
+				
+				integral := true;
+				for i in [1..n+1] do
+					for j in [1..n+1] do
+						if not IsIntegral(gamma[i,j]) then
+							integral := false;
+							break;
+						end if;
+					end for;
+				end for;
+				
+				if integral then
+					if gamma * J * Transpose(gamma) eq J then
+						Append(~stab, gamma);
+					end if;
+				end if;
+			end for;
+		end for;
+		
+		return stab; //TODO: find a way to treat this as a group within magma - look into MatrixGroup
 	end function;
 	
 	function equivalentTwo(v, min_vecs_v, w, min_vecs_w) //makes use of (minkowski) inner products between elements of v_cell_basis. sometimes slower if there are very few different inner products
@@ -362,3 +419,29 @@ else
 	
 	//TODO: may be able to make use of all of the inner products, instead of just those with the first element
 end if;
+
+//----------Cell orientations----------
+function orientable(vertices, stab) //checks if a cell is orientable under its stabiliser, and if so returns a choice of orientation
+	v := barycentre(vertices);
+	
+	if #stabiliser eq 0 then
+		stab := stabiliser(v, vertices); //not sure whether this works outside of standard form - the alternative stabiliser routine probably doesn't work for lower dim cells
+	end if;
+	basis := cellBasis(vertices); //determines an orientation
+	
+	V := VectorSpaceWithBasis(basis);
+	for gamma in stab do
+		images := [];
+		
+		for b in basis do
+			Append(~images, Coordinates(V, b*gamma));
+		end for;
+		
+		M := VerticalJoin(Images);
+		if Sign(Determinant(M)) lt 0 then
+			return false, false;
+		end if;
+	end for;
+	
+	return true, basis, stab;
+end function;
