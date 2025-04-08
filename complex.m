@@ -5,6 +5,7 @@
 	Furthermore, hyperbolic space retracts by a strong deformation retraction onto this dual tessellation.
 */
 
+import "init.m" : n;
 import "symmetric_space.m" : facets, equivalent, barycentre;
 
 //----------Full tessellation from top-cells----------
@@ -24,6 +25,8 @@ function tessellation(top_cells) //generates a full cell structure (*not* up to 
 				end if;
 			end for;
 		end for;
+		
+		cell_vertex_count := #cells[#cells][1];
 	end while;
 	
 	cell_facet_indices := [];
@@ -37,25 +40,27 @@ function tessellation(top_cells) //generates a full cell structure (*not* up to 
 			Append(~cell_facet_indices[#cell_facet_indices], []);
 			
 			for i in [1..#cells[codim+1]] do
-				if IsSubsequence(cells[codim+1][i], high_cell : Kind := Setwise) then
-					Append(~cell_facet_indices[#cell_facet_indices], i);
+				if IsSubsequence(cells[codim+1][i], high_cell : Kind := "Setwise") then
+					Append(~cell_facet_indices[#cell_facet_indices][#cell_facet_indices[#cell_facet_indices]], i);
 				end if;
 			end for;
 		end for;
+		
+		codim +:= 1;
 	end while;
 	
 	return cells, cell_facet_indices;
 end function;
 
-function tessellation_representatives(top_cells)
+function tessellationRepresentatives(top_cells)
 	cell_reps := [[]];
 	
 	//find representatives for top dimension
 	for cell in top_cells do
 		new_class := true; //current cell is not equivalent to any previously checked top cells
 		
-		for rep in cell_reps do
-			equiv, _ := equivalent(rep, cell);
+		for rep in cell_reps[1] do
+			equiv, _ := equivalent(barycentre(rep), rep, barycentre(cell), cell);
 			
 			if equiv then
 				new_class := false;
@@ -73,7 +78,7 @@ function tessellation_representatives(top_cells)
 	facet_equiv_indices := [];
 	facet_equiv_witnesses := [];
 	
-	cell_vertex_count := #cell_facets[1][1];
+	cell_vertex_count := #cell_reps[1][1];
 	while cell_vertex_count gt 1 do
 		//generate facets of previous dimension's representatives
 		Append(~cell_facets, []);
@@ -93,14 +98,14 @@ function tessellation_representatives(top_cells)
 			Append(~facet_equiv_witnesses[#facet_equiv_indices], []);
 			
 			for facet in higher_cell_facets do
-				if facet in cell_reps then
-					Append(~facet_equiv_indices[#facet_equiv_indices][#facet_equiv_indices[#facet_equiv_indices]], i);
+				if facet in cell_reps[#cell_reps] then
+					Append(~facet_equiv_indices[#facet_equiv_indices][#facet_equiv_indices[#facet_equiv_indices]], Index(cell_reps[#cell_reps], facet));
 					Append(~facet_equiv_witnesses[#facet_equiv_witnesses][#facet_equiv_witnesses[#facet_equiv_witnesses]], MatrixRing(Rationals(), n+1) ! 1);
 				else
 					new_class := true;
 					
 					for i in [1..#cell_reps[#cell_reps]] do
-						equiv, equivBy := equivalent(cell_reps[#cell_reps][i], facet);
+						equiv, equivBy := equivalent(barycentre(cell_reps[#cell_reps][i]), cell_reps[#cell_reps][i], barycentre(facet), facet);
 						
 						if equiv then
 							new_class := false;
@@ -122,14 +127,14 @@ function tessellation_representatives(top_cells)
 			end for;
 		end for;
 		
-		cell_vertex_count := #cell_facets[#cell_facets][1];
+		cell_vertex_count := #cell_reps[#cell_reps][1];
 	end while;
 	
 	return cell_reps, cell_facets, facet_equiv_indices, facet_equiv_witnesses;
 end function;
 
 //----------Deformation retract----------
-function retract_facets(cells, cell_facet_indices)
+function retractFacets(cells, cell_facet_indices)
 	vertices := [[barycentre(cell) : cell in cells[i]] : i in [1..#cells]]; //vertices of barycentric subdivision
 	
 	retract_top_cells := [];

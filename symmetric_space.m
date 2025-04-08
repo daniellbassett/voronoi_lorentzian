@@ -195,6 +195,24 @@ We may equivalently test for equivalence of the corresponding perfect vectors, a
 a much faster method for this when standard_form is true, making use of lattice isometry testing.
 */
 
+function naive_generators(G) //naive algorithm for finding a generating set of a rational matrix group of rank n+1
+	generators := [];
+	
+	H := MatrixGroup<n+1, Rationals() | generators>;
+	for g in G do
+		if g notin H then
+			Append(~generators, g);
+			
+			H := MatrixGroup<n+1, Rationals() | generators>;
+			if #H eq #G then
+				break;
+			end if;
+		end if;
+	end for;
+	
+	return generators;
+end function;
+
 if standard_form then
 	function posRep(v) //Associates a symmetric matrix to v; if minkowskiNorm(v) > 1/2 (e.g. for integral points, which we can get by rescaling) then this will be positive-definite.
 		return (MatrixRing(Rationals(), n+1) ! Eltseq(TensorProduct(v,v))) - J/2;
@@ -243,7 +261,7 @@ if standard_form then
 	end function;
 	
 	function stabiliser(v, min_vecs_v)
-		v, _ := clearDenoms(v);
+		v, _ := clearDenoms(v,v);
 		
 		L := LatticeWithGram(2*posRep(v));
 		G := AutomorphismGroup(L, [J_int]);
@@ -251,12 +269,15 @@ if standard_form then
 		//find elements of G that genuinely fix v rather than just posRep(v)
 		stab := [];
 		for g in G do
-			if v * g eq v then
-				Append(~stab, v);
+			gamma := MatrixRing(Rationals(), n+1) ! Transpose(g);
+			if v * gamma eq v then
+				if Determinant(gamma) eq 1 then
+					Append(~stab, gamma);
+				end if;
 			end if;
 		end for;
 		
-		return stab; //TODO: find a way to treat this as a group within magma
+		return naive_generators(stab); //TODO: find a way to treat this as a group within magma
 	end function;
 else
 	function equivalent(v, min_vecs_v, w, min_vecs_w) //naive method: check all ordered subsets of n+1 elements of min_vecs_w and create the matrix
@@ -424,24 +445,64 @@ end if;
 function orientable(vertices, stab) //checks if a cell is orientable under its stabiliser, and if so returns a choice of orientation
 	v := barycentre(vertices);
 	
-	if #stabiliser eq 0 then
+	if #stab eq 0 then
 		stab := stabiliser(v, vertices); //not sure whether this works outside of standard form - the alternative stabiliser routine probably doesn't work for lower dim cells
 	end if;
-	basis := cellBasis(vertices); //determines an orientation
+	
+	basis := cellBasis(vertices, Rank(VerticalJoin(vertices))); //determines an orientation
 	
 	V := VectorSpaceWithBasis(basis);
+	W := VectorSpace(Rationals(), Dimension(V));
 	for gamma in stab do
 		images := [];
 		
 		for b in basis do
-			Append(~images, Coordinates(V, b*gamma));
+			Append(~images, W ! Coordinates(V, b*gamma));
 		end for;
 		
-		M := VerticalJoin(Images);
+		M := VerticalJoin(images);
 		if Sign(Determinant(M)) lt 0 then
-			return false, false;
+			return false, false, false;
 		end if;
 	end for;
 	
 	return true, basis, stab;
+end function;
+
+
+function compatibleOrientation(basis1, basis2, gamma) //gamma takes basis1 to vertices in Span(basis2)
+	acted_basis1 := [v * gamma : v in basis1];
+	
+	V := VectorSpace(Rationals(), #basis2);
+	W := VectorSpaceWithBasis(basis2);
+	images := [];
+	for v in acted_basis1 do
+		Append(~images, V ! Coordinates(W, v));
+	end for;
+	
+	M := VerticalJoin(images);
+
+	return Determinant(M) gt 0;
+end function;
+
+
+function compatibleInducedOrientation(vertices1, vertices2) //basis1 subset of Span(basis2); spans a space of codimension 1
+	for v in vertices2 do
+		if v notin vertices1 then
+			extra_vertex := v;
+			break;
+		end if;
+	end for;
+	
+	V := VectorSpace(Rationals(), #vertices2);
+	W := VectorSpaceWithBasis(vertices2);
+	
+	coords := [];
+	for v in (vertices1 cat [extra_vertex]) do
+		Append(~coords, V ! Coordinates(W, v));
+	end for;
+	
+	M := VerticalJoin(coords);
+	
+	return Determinant(M) gt 0;
 end function;
